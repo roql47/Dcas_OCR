@@ -1,0 +1,28 @@
+# PaddleOCR Web Application
+# Python 3.8+ required
+
+# PaddlePaddle Deep Learning Framework
+paddlepaddle>=3.0.0
+
+# PaddleOCR - Text Detection & Recognition
+paddleocr>=2.9.0
+
+# FastAPI Backend
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.18
+
+# Image Processing
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# PDF Processing
+pdf2image>=1.16.0
+
+# Utilities
+numpy>=2.0.0
+
+# Dcas Client
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
