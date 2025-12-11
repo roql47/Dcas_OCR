@@ -449,9 +449,10 @@ function ExtractionModal({ isOpen, onClose, ocrResults, startDate, endDate, date
         // RUN 조합
         const run = exposureSeries && exposureImages ? `${exposureSeries}/${exposureImages}` : ''
         
-        // ROOM 결정 (15 cm from isocenter 텍스트 확인)
-        const hasIRP = /15\s*cm\s*(from\s*the\s*)?isocenter/i.test(text)
-        const room = hasIRP ? '2' : '1'
+        // ROOM 결정 (Lateral Cumulative Air Kerma 텍스트 확인)
+        // "Lateral Cumulative Air Kerma (K)" 있으면 ROOM 2, 없으면 ROOM 1
+        const hasLateral = /Lateral\s*Cumulative\s*Air\s*Kerma/i.test(text)
+        const room = hasLateral ? '2' : '1'
         
         // 환자의 실제 검사 날짜 사용 (study_date가 있으면)
         let patientDate = ''

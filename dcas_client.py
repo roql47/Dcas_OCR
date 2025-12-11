@@ -7,6 +7,7 @@ Dcas 웹서버에서 환자 검사 기록지를 조회하고
 
 import re
 import logging
+import warnings
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
@@ -16,6 +17,11 @@ import requests
 from bs4 import BeautifulSoup
 import numpy as np
 from PIL import Image
+import urllib3
+
+# urllib3 헤더 파싱 경고 무시 (DCAS PHP 서버의 비정상적인 헤더 때문)
+urllib3.disable_warnings(urllib3.exceptions.HeaderParsingError)
+warnings.filterwarnings('ignore', message='Failed to parse headers')
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)

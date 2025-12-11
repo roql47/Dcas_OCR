@@ -60,18 +60,18 @@ SUPPORTED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif', '.webp
 async def lifespan(app: FastAPI):
     """서버 시작/종료 시 이벤트 처리"""
     # Startup
-    print("🚀 PaddleOCR API 서버 시작 중...")
+    print("[START] PaddleOCR API Server starting...")
     
     # OCR 엔진 미리 초기화 (워밍업)
     warmup_ocr("korean")
     
-    print("🏥 Dcas 연동 기능 활성화")
-    print("✨ 서버 준비 완료!")
+    print("[OK] Dcas integration enabled")
+    print("[OK] Server ready!")
     
     yield
     
     # Shutdown
-    print("👋 서버 종료 중...")
+    print("[STOP] Server shutting down...")
     # Dcas 세션 정리
     with dcas_sessions_lock:
         for session_id, client in dcas_sessions.items():
@@ -211,7 +211,7 @@ def get_ocr_processor(lang: str = "korean") -> OCRProcessor:
     
     with _ocr_processor_lock:
         if _global_ocr_processor is None or _global_ocr_processor.lang != lang:
-            print(f"🔧 OCR 프로세서 초기화 중... (언어: {lang})")
+            print(f"[INIT] OCR processor initializing... (lang: {lang})")
             _global_ocr_processor = OCRProcessor(lang=lang)
         return _global_ocr_processor
 
@@ -223,15 +223,15 @@ def warmup_ocr(lang: str = "korean"):
     if _ocr_initialized:
         return
     
-    print("⏳ OCR 엔진 워밍업 중... (최초 1회만 소요)")
+    print("[WARMUP] Initializing OCR engine...")
     try:
         processor = get_ocr_processor(lang)
         # 엔진 초기화 강제 실행
         processor._initialize_ocr()
         _ocr_initialized = True
-        print("✅ OCR 엔진 초기화 완료!")
+        print("[OK] OCR engine initialized!")
     except Exception as e:
-        print(f"⚠️ OCR 워밍업 실패: {e}")
+        print(f"[WARN] OCR warmup failed: {e}")
 
 
 def get_dcas_client(session_id: str) -> Optional[DcasClient]:
@@ -649,10 +649,7 @@ def run_batch_ocr(
 
 
 @app.post("/api/dcas/ocr", response_model=BatchOCRResponse)
-async def start_batch_ocr(
-    request: BatchOCRRequest,
-    background_tasks: BackgroundTasks
-):
+async def start_batch_ocr(request: BatchOCRRequest):
     """
     선택한 환자들의 리포트를 병렬로 OCR 처리합니다.
     
@@ -660,6 +657,8 @@ async def start_batch_ocr(
     - **max_workers**: 병렬 처리 워커 수 (기본값: 4)
     - **language**: OCR 언어 (기본값: korean)
     - **confidence_threshold**: 신뢰도 임계값 (기본값: 0.3)
+    
+    ⚠️ OCR은 별도 스레드에서 실행되므로 다른 API 요청이 블로킹되지 않습니다.
     """
     if not request.patients:
         return BatchOCRResponse(
@@ -686,16 +685,14 @@ async def start_batch_ocr(
         for p in request.patients
     ]
     
-    # 백그라운드에서 실행
-    background_tasks.add_task(
-        run_batch_ocr,
-        job_id,
-        client,
-        patients,
-        request.max_workers,
-        request.language,
-        request.confidence_threshold
+    # 별도 스레드에서 OCR 실행 (다른 API 요청 블로킹 방지)
+    ocr_thread = threading.Thread(
+        target=run_batch_ocr,
+        args=(job_id, client, patients, request.max_workers, request.language, request.confidence_threshold),
+        daemon=True,  # 메인 프로세스 종료 시 함께 종료
+        name=f"OCR-{job_id[:8]}"
     )
+    ocr_thread.start()
     
     return BatchOCRResponse(
         success=True,
@@ -825,10 +822,10 @@ def extract_dose_data(ocr_text: str) -> dict:
     if exposure_series and exposure_images:
         result["run"] = f"{exposure_series}/{exposure_images}"
     
-    # ROOM 결정 (IRP 15cm 텍스트 확인)
-    # "Air kerma is reported at the interventional reference point (IRP), 15 cm from the isocenter towards the tube."
-    irp_pattern = r'15\s*cm\s*(from\s*the\s*)?isocenter'
-    if re.search(irp_pattern, ocr_text, re.IGNORECASE):
+    # ROOM 결정 (Lateral Cumulative Air Kerma 텍스트 확인)
+    # "Lateral Cumulative Air Kerma (K)" 있으면 ROOM = "2", 없으면 ROOM = "1"
+    lateral_pattern = r'Lateral\s*Cumulative\s*Air\s*Kerma'
+    if re.search(lateral_pattern, ocr_text, re.IGNORECASE):
         result["room"] = "2"
     else:
         result["room"] = "1"

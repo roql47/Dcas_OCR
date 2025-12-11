@@ -288,8 +288,12 @@ class OCRProcessor:
         Raises:
             OCRError: OCR 처리 실패 시
         """
+        import time
+        
         # OCR 엔진 초기화
+        logger.info("🔧 OCR 엔진 초기화 확인...")
         self._initialize_ocr()
+        logger.info("✅ OCR 엔진 준비 완료")
         
         threshold = confidence_threshold if confidence_threshold is not None else self.confidence_threshold
         
@@ -297,21 +301,30 @@ class OCRProcessor:
             # 파일 경로인 경우 직접 전달 (더 안정적)
             if isinstance(image, str):
                 # 파일 경로를 직접 PaddleOCR에 전달
+                logger.info(f"🖼️ OCR 실행 시작: {image}")
+                start_time = time.time()
                 ocr_output = self._ocr.predict(image)
+                elapsed = time.time() - start_time
+                logger.info(f"⏱️ OCR 실행 완료: {elapsed:.2f}초")
             else:
                 # numpy 배열인 경우
                 img_array = image
                 if preprocess:
                     img_array = preprocess_image(img_array)
+                logger.info(f"🖼️ OCR 실행 시작 (numpy array: {img_array.shape})")
+                start_time = time.time()
                 ocr_output = self._ocr.predict(img_array)
+                elapsed = time.time() - start_time
+                logger.info(f"⏱️ OCR 실행 완료: {elapsed:.2f}초")
             
             # 결과 추출
+            logger.info("📝 OCR 결과 추출 중...")
             results = self._extract_results(ocr_output)
             
             # 신뢰도 필터링
             filtered_results = [r for r in results if r.confidence >= threshold]
             
-            logger.info(f"인식 완료: 전체 {len(results)}개, 필터링 후 {len(filtered_results)}개")
+            logger.info(f"✅ 인식 완료: 전체 {len(results)}개, 필터링 후 {len(filtered_results)}개")
             
             return filtered_results
             
