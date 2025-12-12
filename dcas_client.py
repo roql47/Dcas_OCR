@@ -393,16 +393,19 @@ class DcasClient:
         image_dir = ""
         
         # 정규식으로 썸네일 img src 추출
-        # 리포트 이미지는 "1020.dcm.JPG"로 끝나는 파일 중 첫 번째만 해당
+        # 리포트 이미지는 "1020.dcm.JPG"로 끝나는 파일 중 마지막에서 두번째가 Dose Report
         # <img src="./dicom/Data/2025/12/10/00306304_X/swf_s/xxx1020.dcm.JPG" alt="thumbNail">
         img_pattern = r'<img\s+src="([^"]+/swf_s/[^"]+1020\.dcm\.JPG)"'
         img_matches = re.findall(img_pattern, html, re.IGNORECASE)
         
         logger.info(f"🔍 리포트 이미지 (1020.dcm) 발견: {len(img_matches)}개")
         
-        # 첫 번째 리포트 이미지만 사용
+        # 마지막에서 두번째 리포트 이미지 사용 (Dose Report)
         if img_matches:
-            thumb_src = img_matches[0]  # 첫 번째만!
+            if len(img_matches) >= 2:
+                thumb_src = img_matches[-2]  # 마지막에서 두번째
+            else:
+                thumb_src = img_matches[0]  # 하나뿐이면 그거 사용
             
             # 상대 경로 처리
             if thumb_src.startswith('./'):
@@ -418,7 +421,7 @@ class DcasClient:
             
             url = f"{self.BASE_URL}/{real_src}"
             image_urls.append(url)
-            logger.info(f"✅ 리포트 URL (1개): {url}")
+            logger.info(f"✅ Dose Report URL (마지막에서 {2 if len(img_matches) >= 2 else 1}번째): {url}")
             
             # 디렉토리 경로 추출
             dir_match = re.match(r'(.*/)([^/]+)$', real_src)
